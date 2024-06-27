@@ -1,5 +1,5 @@
 '''
-Code Purpose: Perform a cone search of Gaia DR3 for given beam pointings from a Observation Campaign. Warning observation database currently hardcoded.  
+Code Purpose: Perform a cone search of Gaia DR3 for given beam pointings from a Observation Campaign.  
 Author: Owen A. Johnson
 '''
 
@@ -14,7 +14,8 @@ import argparse
 
 #  --- CLI Arguments ---
 parser = argparse.ArgumentParser(description='Gaia DR3 Cone Search')
-parser.add_argument('-b', '--beamsize', type=int, help='Beam size to query')
+parser.add_argument('-b', '--beamsize', default=2.59/2, type=float, help='Beam size to query. Default is 2.59/2 degrees. Which is the FWHM of a LOFAR international station at 150 MHz.')
+parser.add_argument('-i', '--input', type=str, required=True, help='Input file containing the RA and DEC of the zenith pointings. In the form of RA, DEC, TIC ID. Delimited by a comma.')
 args = parser.parse_args()
 
 log_file = open('all-gaia-output.log', 'w')
@@ -41,14 +42,13 @@ Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"  # Select Data Release 3
 Gaia.ROW_LIMIT = -1  # No limit on number of rows returned
 
 # --- Loading LOFAR beam pointings ---
-OBS_df = pd.read_csv('/home/owen/SETI-Scripts/TESS/TESS_ext_target_data_observed.csv') # Loading observed targets
+OBS_df = pd.read_csv(args.input, delimiter=',', skiprows=1)
 print(OBS_df.head())
 pointings_ra = OBS_df['ra']; pointings_dec = OBS_df['dec']
 TIC_ids = OBS_df['TIC_ID']
 pointings_vec = np.vstack((pointings_ra, pointings_dec)).T
 pointing_coords = SkyCoord(ra=pointings_vec[:,0]*u.degree, dec=pointings_vec[:,1]*u.degree)
 print('Number of pointings: ', len(pointings_vec))
-# beam_radius = 2.59/2 # degrees, FWHM at 150 MHz
 beam_radius = args.beamsize 
 
 data_frames = []
@@ -92,7 +92,8 @@ for i in (range(0, len(pointing_coords))):
 
 # Concatenate the individual data frames into a single total data frame
 total_dataframe = pd.concat(data_frames, ignore_index=True)
-total_dataframe.to_csv('GDR3_LOFAR_trgts.csv')
+total_dataframe.to_csv('GDR3_beam_targets_r%s_%s.csv' % (beam_radius, time.strftime("%Y%m%d")))
+
 print('\n---\nTotal number of targets found in beam: ', total_count)
 print('Number of targets found in beam (1σ): ', len(total_dataframe))
 print('Number of targets found in beam (2σ): ', count_2σ)
